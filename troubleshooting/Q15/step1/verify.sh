@@ -1,0 +1,42 @@
+#!/bin/bash
+# verify.sh - Controlplane Troubleshooting Validation
+OUTPUT_FILE="${OUTPUT_FILE:-$HOME/validation.log}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/utility.sh"
+
+log "INFO" "Running Controlplane Troubleshooting Validations..."
+echo "" | tee -a "$OUTPUT_FILE"
+
+# Standard kubeadm path for the kube-apiserver static pod manifest
+MANIFEST_FILE="/etc/kubernetes/manifests/kube-apiserver.yaml"
+
+# 1. Check if the kube-apiserver manifest was fixed
+# Note: We omit the leading dashes in the regex (etcd-servers) to prevent 'grep' from parsing it as an invalid command-line flag inside 'check_local_file'.
+check_local_file "$MANIFEST_FILE" "etcd-servers=https://127\.0\.0\.1:2379"
+
+# 2. Check if the Kubernetes API has recovered and is reachable
+log "INFO" "Testing Kubernetes API reachability..."
+if kubectl get --raw='/readyz' >/dev/null 2>&1 || kubectl get nodes >/dev/null 2>&1; then
+  log "PASS" "Kubernetes API is reachable and responding successfully."
+  ((PASS_COUNT++))
+else
+  log "FAIL" "Kubernetes API is NOT reachable. The apiserver might still be crashing."
+  ((FAIL_COUNT++))
+fi
+
+for BASE_POD in "${PODS[@]}"; do
+    POD="$BASE_POD-$(hostname)"
+    
+    # 1. Check if Pod exists and is Running
+    check_k8s_resource "pod" "$POD" "$NS" "" "{.status.phase}" "Running"
+    
+    # 2. Check CPU and Memory thresholds fall within the 100 to 200 range
+    check_k8s_resource "pod" "$POD" "$NS" "" "{.spec.containers[0].resources.limits.cpu}" "$RANGE" "range"
+    check_k8s_resource "pod" "$POD" "$NS" "" "{.spec.containers[0].resources.limits.memory}" "$RANGE" "range"
+    
+    check_k8s_resource "pod" "$POD" "$NS" "" "{.spec.containers[0].resources.requests.cpu}" "$RANGE" "range"
+    check_k8s_resource "pod" "$POD" "$NS" "" "{.spec.containers[0].resources.requests.memory}" "$RANGE" "range"
+done
+
+print_summary_and_exit
