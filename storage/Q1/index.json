@@ -1,0 +1,31 @@
+{
+    "title": "Claim Existing PVC",
+    "description": "Assign an existing PVC to a newly created deployment",
+    "details": {
+      "intro": {
+        "text": "intro.md",
+        "background": "init.sh",
+        "foreground": "ssh.sh"
+      },
+      "steps": [
+        {
+            "text": "step1/text.md",
+            "verify": "step1/verify.sh",
+            "background": "step1/init.sh"
+        }
+      ],
+      "assets": {
+        "host01": [
+            {"file": "utility.sh", "target": "/var/run/kc-internal/scenario-service/"},
+            {"file": "deployment.yaml", "target": "/tmp/init/"},
+            {"file": "namespace.yaml", "target": "/tmp/init/"},
+            {"file": "pvc.yaml", "target": "/tmp/init/"},
+            {"file": "pv.yaml", "target": "/tmp/init/"},
+            {"file": "deployment.yaml", "target": "~/"}
+        ]
+      }
+    },
+    "backend": {
+      "imageid": "kubernetes-kubeadm-2nodes"
+    }
+}
